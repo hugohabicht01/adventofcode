@@ -33,6 +33,7 @@ interface Submarine {
   instructions: Instruction[];
   horizontalPos: number;
   depth: number;
+  aim: number;
 }
 
 class Submarine {
@@ -40,6 +41,7 @@ class Submarine {
     this.instructions = instructions.split('\n').map(el => new Instruction(el))
     this.horizontalPos = 0
     this.depth = 0;
+    this.aim = 0;
   }
 
   runAll() {
@@ -51,13 +53,14 @@ class Submarine {
   runInstruction(instruction: Instruction) {
     switch (instruction.instruction) {
       case EInstruction.down:
-        this.depth += instruction.amount;
+        this.aim += instruction.amount;
         break;
       case EInstruction.up:
-        this.depth -= instruction.amount;
+        this.aim -= instruction.amount;
         break;
       case EInstruction.forward:
         this.horizontalPos += instruction.amount;
+        this.depth += this.aim * instruction.amount;
         break;
     }
   }
