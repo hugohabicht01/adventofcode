@@ -1,4 +1,5 @@
 import { example, input } from './input'
+import util from 'util';
 
 class Vent {
     public startX: number;
@@ -22,10 +23,10 @@ class Vent {
     public getVentLineCoords(): [number, number][] | undefined {
         if (this.startX === this.endX) {
             // Vertical line
-            return Vent.pointsInBetween(this.startY, this.endY).map(y => [this.startX, y]);
+            return Vent.pointsInBetween(this.startY, this.endY).map(y => [this.startX, y]) as [number, number][];
         } else if (this.startY === this.endY) {
             // Horizontal line
-            return Vent.pointsInBetween(this.startX, this.endX).map(x => [x, this.startY]);
+            return Vent.pointsInBetween(this.startX, this.endX).map(x => [x, this.startY]) as [number, number][];
         }
         return undefined;
     }
@@ -49,37 +50,54 @@ class CoordinateSystem {
     public navsystem: (number | null)[][];
 
     constructor(maxX: number, maxY: number) {
-        this.navsystem = Array(maxY + 1).fill(Array(maxX + 1))
+        // This needs to be a deep copy, otherwise writing to it will write to not only the coord but also other places...
+        this.navsystem = JSON.parse(JSON.stringify(Array(maxY + 1).fill(Array(maxX + 1).fill(null))));
     }
 
     public addVent(x: number, y: number) {
-        let val = this.navsystem[x][y] || 0;
-        this.navsystem[x][y] = ++val;
+        let val = this.navsystem[y][x];
+        if (!val) {
+            val = 0
+        }
+        this.navsystem[y][x] = ++val;
+    }
+
+    [util.inspect.custom]() {
+        return this.navsystem.map(row => row.map(num => !!num ? String(num) : '.').join(' ')).join('\n');
     }
 }
 
 
-const vents: Vent[] = example.split('\n').map(line => new Vent(line))
+const vents: Vent[] = input.split('\n').map(line => new Vent(line))
 
 // Find biggest x and y coordinates
 const maxX = Math.max(...vents.map(vent => vent.endX), ...vents.map(vent => vent.startX))
 const maxY = Math.max(...vents.map(vent => vent.endY), ...vents.map(vent => vent.startY))
 
 const map = new CoordinateSystem(maxX, maxY);
-
 while (vents.length > 0) {
     const currentVent = vents.shift();
     const ventline = currentVent?.getVentLineCoords()
-    ventline?.forEach(coord => {
-        if (coord) {
-            map.addVent(...coord);
-        }
-    })
+    if (ventline) {
+        ventline.forEach(coord => {
+            if (coord) {
+                map.addVent(...coord);
+            }
+        })
+    }
 }
 
-for (const line of map.navsystem) {
-    for (const num of line) {
-        process.stdout.write(num ? String(num) : '.')
-    }
-    process.stdout.write('\n')
-}
+// Find the solution, the total number of points where atleast 2 vents overlap
+const solution = map.navsystem.reduce((acc, row) => {
+    // @ts-expect-error
+    return acc + row.reduce((acc, val) => {
+        if (val && val > 1) {
+        // @ts-expect-error
+            return acc + 1;
+        }
+        return acc;
+    }, 0)
+}, 0)
+
+
+console.log(solution)
