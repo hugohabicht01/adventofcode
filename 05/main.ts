@@ -20,7 +20,7 @@ class Vent {
         this.endY = endY;
     }
 
-    public getVentLineCoords(): [number, number][] | undefined {
+    public getVentLineCoords(): [number, number][] {
         if (this.startX === this.endX) {
             // Vertical line
             return Vent.pointsInBetween(this.startY, this.endY).map(y => [this.startX, y]) as [number, number][];
@@ -28,13 +28,22 @@ class Vent {
             // Horizontal line
             return Vent.pointsInBetween(this.startX, this.endX).map(x => [x, this.startY]) as [number, number][];
         }
-        return undefined;
+        const xPoints = Vent.pointsInBetween(this.startX, this.endX, true);
+        const yPoints = Vent.pointsInBetween(this.startY, this.endY, true)
+        return Vent.zip(xPoints, yPoints) as [number, number][];
     }
 
-    static pointsInBetween(start: number, end: number) {
+    static pointsInBetween(start: number, end: number, preserveDirection: boolean = false) {
         let nums: number[] = [];
 
         if (end < start) {
+            if (preserveDirection) {
+                for (let i = start; i >= end; i--) {
+                    nums.push(i);
+                }
+                return nums;
+            }
+
             [start, end] = [end, start];
         }
 
@@ -43,6 +52,10 @@ class Vent {
         }
 
         return nums;
+    }
+
+    static zip(nums: number[], nums2: number[]) {
+        return nums.map((num, i) => [num, nums2[i]])
     }
 }
 
@@ -88,16 +101,14 @@ while (vents.length > 0) {
 }
 
 // Find the solution, the total number of points where atleast 2 vents overlap
-const solution = map.navsystem.reduce((acc, row) => {
-    // @ts-expect-error
-    return acc + row.reduce((acc, val) => {
-        if (val && val > 1) {
-        // @ts-expect-error
-            return acc + 1;
+let count = 0;
+for (const row of map.navsystem) {
+    for (const point of row) {
+        if (point && point > 1) {
+            count++;
         }
-        return acc;
-    }, 0)
-}, 0)
+    }
+}
 
 
-console.log(solution)
+console.log(count)
