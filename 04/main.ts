@@ -1,140 +1,160 @@
-import { example, input } from './input'
-
-const [numbers, , ...boardsNumbers] = example.split('\n');
-
-let inputNumbers = numbers.split(',').map(num => parseInt(num));
-
-interface BingoNumber {
-    number: number;
-    isMarked: boolean;
-}
+import { example } from './input';
+import colors from 'colors/safe';
+import util from 'util';
 
 class BingoNumber {
-    constructor(number: number | string, public isMarked: boolean = false) {
+    public number: number;
+    public isMarked: boolean;
+    constructor(number: number | string, isMarked: boolean = false) {
         if (typeof number === 'string') {
             this.number = parseInt(number);
         } else {
             this.number = number;
         }
+        this.isMarked = isMarked;
     }
 }
 
-const calculateScore = (boards: BingoNumber[][], lastNum: number) => {
-    return lastNum * boards.flat().filter(num => num.isMarked === false).reduce((acc, num) => acc + num.number, 0);
-}
+class BingoBoard {
+    public board: BingoNumber[][];
+    public lastCalledNum: number;
 
-let board: BingoNumber[][] = [];
-let boards: BingoNumber[][][] = [];
+    constructor(startNumbers: string) {
+        this.board = [];
+        this.lastCalledNum = 0;
 
-// Parse the data into the boards
-boardsNumbers.forEach(line => {
-    if (line === '') {
-        boards.push(board);
-        board = [];
-        return;
-    }
-    const l = line.split(' ').filter(num => num !== '').map(num => new BingoNumber(num));
-    board.push(l);
-})
-boards.push(board);
-
-// Part 1
-// let count = 0;
-// let bingo = false;
-// while (inputNumbers.length > 0) {
-//     count++;
-//     // Mark the number
-//     const inputNumber = inputNumbers.shift();
-//     if (inputNumber === undefined) {
-//         break;
-//     }
-//     boards.forEach(board => {
-//         board.forEach(row => {
-//             const found = row.findIndex(num => num.number === inputNumber)
-//             if (found !== -1) {
-//                 row[found].isMarked = true;
-//             }
-//         });
-//     })
-
-//     // Check if someone has 5 in a row
-
-//     // Horizontally
-//     boards.forEach(board => {
-//         board.forEach(row => {
-//             const hasBeenFound = row.filter(num => num.isMarked).length === 5;
-//             if (hasBeenFound) {
-//                 console.log(`Count: ${count}, inputNumber: ${inputNumber}`);
-//                 console.log(calculateScore(board, inputNumber));
-//                 bingo = true;
-//             }
-//         });
-//     });
-
-//     // Vertically
-//     boards.forEach(board => {
-//         for (let idx = 0; idx < 5; idx++) {
-//             const hasBeenFound = board.filter(row => row[idx].isMarked).length === 5;
-//             if (hasBeenFound) {
-//                 console.log(`Count: ${count}, inputNumber: ${inputNumber}`);
-//                 console.log(calculateScore(board, inputNumber));
-//                 bingo = true;
-//             }
-//         }
-//     });
-//     if (bingo) {
-//         break;
-//     }
-// }
-
-
-let bingo = false;
-let countAlreadyWon = 0;
-while (inputNumbers.length > 0) {
-    // Mark the number
-    const inputNumber = inputNumbers.shift();
-    if (inputNumber === undefined) {
-        break;
-    }
-    boards.forEach(board => {
-        board.forEach(row => {
-            const found = row.findIndex(num => num.number === inputNumber)
-            if (found !== -1) {
-                row[found].isMarked = true;
-            }
+        startNumbers.split('\n').forEach((line) => {
+            const parsedLine = line
+                .split(' ')
+                .filter((num) => num !== '')
+                .map((num) => new BingoNumber(num));
+            this.board.push(parsedLine);
         });
-    })
+    }
 
-    // Check if someone has 5 in a row
-
-    // Horizontally
-    boards.forEach(board => {
-        board.forEach(row => {
-            const hasBeenFound = row.filter(num => num.isMarked).length === 5;
-            if (hasBeenFound) {
-                countAlreadyWon++;
-                if (countAlreadyWon === boards.length) {
-                    console.log(calculateScore(board, inputNumber));
-                    bingo = true;
+    markNumber(number: number): number {
+        this.lastCalledNum = number;
+        let numbersMarked = 0;
+        this.board.forEach((row) => {
+            row.forEach((num) => {
+                if (num.number === number) {
+                    num.isMarked = true;
+                    numbersMarked++;
                 }
-            }
+            });
         });
-    });
+        return numbersMarked;
+    }
 
-    // Vertically
-    boards.forEach(board => {
-        for (let idx = 0; idx < 5; idx++) {
-            const hasBeenFound = board.filter(row => row[idx].isMarked).length === 5;
-            if (hasBeenFound) {
-                countAlreadyWon++;
-                if (countAlreadyWon === boards.length) {
-                    console.log(calculateScore(board, inputNumber));
-                    bingo = true;
+    checkForWin(): number {
+        const horizontalWin = this.board
+            .map((row) => row.every((num) => num.isMarked))
+            .some((marked) => marked);
+
+        const verticalWin = this.board[0]
+            .map((_, i) => this.board.every((row) => row[i].isMarked))
+            .some((marked) => marked);
+
+        if (horizontalWin || verticalWin) {
+            return this.calculateScore();
+        }
+
+        return -1;
+    }
+
+    calculateScore(): number {
+        return this.sumOfUnmarkedNumbers() * this.lastCalledNum;
+    }
+
+    sumOfUnmarkedNumbers(): number {
+        let sum = 0;
+        for (const row of this.board) {
+            for (const num of row) {
+                if (!num.isMarked) {
+                    sum += num.number;
                 }
             }
         }
-    });
-    if (bingo) {
-        break;
+        return sum;
+    }
+
+    [util.inspect.custom]() {
+        return this.toString();
+    }
+
+    toString() {
+        return this.board
+            .map((row) => {
+                return row
+                    .map((num) => {
+                        if (num.isMarked) {
+                            // return `\x1b[1m${num.number}\x1b[0m`;
+                            return colors.inverse(String(num.number));
+                        }
+                        return num.number;
+                    })
+                    .join(' ');
+            })
+            .join('\n');
     }
 }
+
+class Bingo {
+    public boards: BingoBoard[];
+    public bingoNumbers: number[];
+    constructor(input: string) {
+        const [numbers, ...boardsNumbers] = input.split('\n\n');
+
+        this.bingoNumbers = numbers.split(',').map((num) => parseInt(num));
+        this.boards = boardsNumbers.map(
+            (boardstring, i) => new BingoBoard(boardstring)
+        );
+    }
+
+    markNextNumber(): number {
+        if (this.bingoNumbers.length === 0) {
+            return -1;
+        }
+        const nextNumber = this.bingoNumbers.shift() as number;
+
+        let numbersMarked = 0;
+        this.boards.forEach((board) => {
+            numbersMarked += board.markNumber(nextNumber);
+        });
+        return numbersMarked;
+    }
+
+    checkForWins(): number[] {
+        // Score of the board that won first
+        return this.boards
+            .map((board) => board.checkForWin())
+            .filter((num) => num !== -1)
+    }
+
+    play() {
+        let numbersMarked = 1337;
+        while (numbersMarked > 0) {
+            let numbersMarked = this.markNextNumber();
+            if (numbersMarked === -1) {
+                console.log('All numbers used up');
+                break;
+            }
+
+            if (numbersMarked > 0) {
+                const scores = this.checkForWins();
+                if (scores.length > 0) {
+                    console.log(scores);
+                    break;
+                }
+            }
+        }
+    }
+
+    [util.inspect.custom]() {
+        return this.boards.map((board) => board.toString()).join('\n\n');
+    }
+}
+
+const bingoGame = new Bingo(example);
+
+bingoGame.play();
