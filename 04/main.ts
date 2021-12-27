@@ -1,4 +1,4 @@
-import { example } from './input';
+import { example, input } from './input';
 import colors from 'colors/safe';
 import util from 'util';
 
@@ -18,10 +18,12 @@ class BingoNumber {
 class BingoBoard {
     public board: BingoNumber[][];
     public lastCalledNum: number;
+    private hasWon: boolean;
 
     constructor(startNumbers: string) {
         this.board = [];
         this.lastCalledNum = 0;
+        this.hasWon = false;
 
         startNumbers.split('\n').forEach((line) => {
             const parsedLine = line
@@ -33,6 +35,10 @@ class BingoBoard {
     }
 
     markNumber(number: number): number {
+        if (this.hasWon) {
+            return 0;
+        }
+
         this.lastCalledNum = number;
         let numbersMarked = 0;
         this.board.forEach((row) => {
@@ -47,6 +53,10 @@ class BingoBoard {
     }
 
     checkForWin(): number {
+        if (this.hasWon) {
+            return this.calculateScore();
+        }
+
         const horizontalWin = this.board
             .map((row) => row.every((num) => num.isMarked))
             .some((marked) => marked);
@@ -56,6 +66,7 @@ class BingoBoard {
             .some((marked) => marked);
 
         if (horizontalWin || verticalWin) {
+            this.hasWon = true;
             return this.calculateScore();
         }
 
@@ -88,7 +99,6 @@ class BingoBoard {
                 return row
                     .map((num) => {
                         if (num.isMarked) {
-                            // return `\x1b[1m${num.number}\x1b[0m`;
                             return colors.inverse(String(num.number));
                         }
                         return num.number;
@@ -102,6 +112,8 @@ class BingoBoard {
 class Bingo {
     public boards: BingoBoard[];
     public bingoNumbers: number[];
+    public previousScores: number[] = [];
+
     constructor(input: string) {
         const [numbers, ...boardsNumbers] = input.split('\n\n');
 
@@ -112,9 +124,6 @@ class Bingo {
     }
 
     markNextNumber(): number {
-        if (this.bingoNumbers.length === 0) {
-            return -1;
-        }
         const nextNumber = this.bingoNumbers.shift() as number;
 
         let numbersMarked = 0;
@@ -125,29 +134,31 @@ class Bingo {
     }
 
     checkForWins(): number[] {
-        // Score of the board that won first
+        // Scores of the different boards after they won
         return this.boards
             .map((board) => board.checkForWin())
-            .filter((num) => num !== -1)
+            .filter((num) => num !== -1);
     }
 
     play() {
-        let numbersMarked = 1337;
-        while (numbersMarked > 0) {
+        while (this.bingoNumbers.length > 0) {
             let numbersMarked = this.markNextNumber();
-            if (numbersMarked === -1) {
-                console.log('All numbers used up');
-                break;
-            }
 
             if (numbersMarked > 0) {
                 const scores = this.checkForWins();
-                if (scores.length > 0) {
-                    console.log(scores);
-                    break;
+
+                // All boards have won
+                if (scores.length === this.boards.length) {
+                    // Find the new score
+                    const newScore = scores.filter((score) =>
+                        !this.previousScores.includes(score)
+                    );
+                    return newScore[0];
                 }
+                this.previousScores = scores;
             }
         }
+        console.log("No more numbers left");
     }
 
     [util.inspect.custom]() {
@@ -155,6 +166,7 @@ class Bingo {
     }
 }
 
-const bingoGame = new Bingo(example);
+const bingoGame = new Bingo(input);
 
-bingoGame.play();
+const result = bingoGame.play();
+console.log(result);
